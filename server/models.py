@@ -29,15 +29,30 @@ class Restaurant(db.Model, SerializerMixin):
     def __repr__(self):
         return f"<Restaurant {self.name}>"
     
-    def to_dict(self, exclude=None):
-        """Convert model instance to a dictionary, excluding specified fields."""
+    def to_dict(self, include=None, exclude=None):
+        """Convert model instance to a dictionary, including or excluding specified fields."""
+        include = include or []
         exclude = exclude or []
+
+        # Convert the model instance to a dictionary of its columns
         result = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+        # Include specified relationships if they exist
+        for field in include:
+            relationship = getattr(self, field, None)
+            if relationship is not None:
+                # Check if the relationship is a single object or a collection
+                if isinstance(relationship, list):
+                    result[field] = [item.to_dict() for item in relationship]
+                else:
+                    result[field] = relationship.to_dict()
+
+        # Exclude specified fields
         for field in exclude:
-            if field in result:
-                del result[field]
+            result.pop(field, None)
+
         return result
-    
+
 
 class Pizza(db.Model, SerializerMixin):
     __tablename__ = "pizzas"
@@ -78,3 +93,22 @@ class RestaurantPizza(db.Model, SerializerMixin):
 
     def __repr__(self):
         return f"<RestaurantPizza ${self.price}>"
+    
+    def to_dict(self, include=None, exclude=None):
+        """Convert model instance to a dictionary, including or excluding specified fields."""
+        include = include or []
+        exclude = exclude or []
+
+        result = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+        if 'pizza' in include:
+            result['pizza'] = self.pizza.to_dict() if self.pizza else None
+        if 'restaurant' in include:
+            result['restaurant'] = self.restaurant.to_dict() if self.restaurant else None
+
+        for field in exclude:
+            if field in result:
+                del result[field]
+
+        return result
+
